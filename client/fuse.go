@@ -403,10 +403,13 @@ func main() {
 	defer log.LogFlush()
 
 	if _, err = os.Stat(opt.MountPoint); err != nil {
-		if err = os.Mkdir(opt.MountPoint, os.ModePerm); err != nil {
-			err = errors.NewErrorf("Init.MountPoint mkdir failed error %v\n", err)
-			fmt.Println(err)
-			os.Exit(1)
+		// mount crush do not mkdir again
+		if !strings.Contains(err.Error(), "Transport endpoint is not connected") {
+			if err = os.Mkdir(opt.MountPoint, os.ModePerm); err != nil {
+				err = errors.NewErrorf("Init.MountPoint mkdir failed error %v\n", err)
+				fmt.Println(err)
+				os.Exit(1)
+			}
 		}
 	}
 
