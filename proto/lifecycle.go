@@ -190,11 +190,6 @@ func validRule(r *Rule) error {
 		return LifeCycleErrMissingActions
 	}
 
-	// expiration is temporarily disabled, remove this code to enable expiration
-	if r.Expiration != nil && !ExpirationEnabled {
-		return errors.New("expiration is temporarily disabled")
-	}
-
 	if r.Expiration != nil {
 		if err := validExpiration(r.Expiration); err != nil {
 			return err

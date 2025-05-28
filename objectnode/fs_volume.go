@@ -24,6 +24,7 @@ import (
 	"hash"
 	"io"
 	"os"
+	os_path "path"
 	"reflect"
 	"sort"
 	"strconv"
@@ -942,7 +943,19 @@ func (v *Volume) DeletePath(path string) (err error) {
 		log.LogWarnf("DeletePath Evict: path(%v) inode(%v)", path, ino)
 	}
 	err = nil
-	return
+
+	// Recursive deletion of empty directory
+	if os_path.Dir(path) == "." {
+		return
+	} else {
+		log.LogInfof("os_path.Dir(path): (%v)", os_path.Dir(path))
+
+		if err = v.DeletePath(fmt.Sprintf("%s/", os_path.Dir(path))); err != nil {
+			log.LogErrorf("Recursive DeletePath: delete path fail: path(%v) err(%v)", path, err)
+			return
+		}
+		return
+	}
 }
 
 func (v *Volume) InitMultipart(path string, opt *PutFileOption) (multipartID string, err error) {
