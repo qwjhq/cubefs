@@ -27,38 +27,41 @@ import (
 
 // MetaNode defines the structure of a meta node
 type MetaNode struct {
-	ID                        uint64
-	Addr                      string
-	DomainAddr                string
-	IsActive                  bool
-	Sender                    *AdminTaskManager `graphql:"-"`
-	ZoneName                  string            `json:"Zone"`
-	MaxMemAvailWeight         uint64            `json:"MaxMemAvailWeight"`
-	Total                     uint64            `json:"TotalWeight"`
-	Used                      uint64            `json:"UsedWeight"`
-	Ratio                     float64
-	SelectCount               uint64
-	Threshold                 float32
-	ReportTime                time.Time
-	metaPartitionInfos        []*proto.MetaPartitionReport
-	MetaPartitionCount        int
-	NodeSetID                 uint64
-	sync.RWMutex              `graphql:"-"`
-	ToBeOffline               bool
-	PersistenceMetaPartitions []uint64
-	RdOnly                    bool
-	MigrateLock               sync.RWMutex
-	MpCntLimit                LimitCounter       `json:"-"` // max count of meta partition in a meta node
-	CpuUtil                   atomicutil.Float64 `json:"-"`
-
+	ID                               uint64
+	Addr                             string
+	DomainAddr                       string
+	IsActive                         bool
+	Sender                           *AdminTaskManager `graphql:"-"`
+	ZoneName                         string            `json:"Zone"`
+	MaxMemAvailWeight                uint64            `json:"MaxMemAvailWeight"`
+	Total                            uint64            `json:"TotalWeight"`
+	Used                             uint64            `json:"UsedWeight"`
+	Ratio                            float64
+	SelectCount                      uint64
+	Threshold                        float32
+	ReportTime                       time.Time
+	metaPartitionInfos               []*proto.MetaPartitionReport
+	MetaPartitionCount               int
+	NodeSetID                        uint64
+	sync.RWMutex                     `graphql:"-"`
+	ToBeOffline                      bool
+	PersistenceMetaPartitions        []uint64
+	RdOnly                           bool
+	MigrateLock                      sync.RWMutex
+	MpCntLimit                       LimitCounter       `json:"-"` // max count of meta partition in a meta node
+	CpuUtil                          atomicutil.Float64 `json:"-"`
+	HeartbeatPort                    string             `json:"HeartbeatPort"`
+	ReplicaPort                      string             `json:"ReplicaPort"`
 	ReceivedForbidWriteOpOfProtoVer0 bool
 }
 
-func newMetaNode(addr, zoneName, clusterID string) (node *MetaNode) {
+func newMetaNode(addr, heartbeatPort, replicaPort, zoneName, clusterID string) (node *MetaNode) {
 	node = &MetaNode{
-		Addr:     addr,
-		ZoneName: zoneName,
-		Sender:   newAdminTaskManager(addr, clusterID),
+		Addr:          addr,
+		HeartbeatPort: heartbeatPort,
+		ReplicaPort:   replicaPort,
+		ZoneName:      zoneName,
+		Sender:        newAdminTaskManager(addr, clusterID),
 	}
 	node.CpuUtil.Store(0)
 	return

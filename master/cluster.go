@@ -1157,7 +1157,7 @@ func (c *Cluster) updateMetaNodeBaseInfo(nodeAddr string, id uint64) (err error)
 	return
 }
 
-func (c *Cluster) addMetaNode(nodeAddr, zoneName string, nodesetId uint64) (id uint64, err error) {
+func (c *Cluster) addMetaNode(nodeAddr, heartbeatPort, replicaPort, zoneName string, nodesetId uint64) (id uint64, err error) {
 	c.mnMutex.Lock()
 	defer c.mnMutex.Unlock()
 
@@ -1167,10 +1167,20 @@ func (c *Cluster) addMetaNode(nodeAddr, zoneName string, nodesetId uint64) (id u
 		if nodesetId > 0 && nodesetId != metaNode.ID {
 			return metaNode.ID, fmt.Errorf("addr already in nodeset [%v]", nodeAddr)
 		}
+
+		// compatible with old version in which raft heartbeat port and replica port did not persistAdd commentMore actions
+		metaNode.Lock()
+		defer metaNode.Unlock()
+		metaNode.HeartbeatPort = heartbeatPort
+		metaNode.ReplicaPort = replicaPort
+		if err = c.syncUpdateMetaNode(metaNode); err != nil {
+			return metaNode.ID, err
+		}
+
 		return metaNode.ID, nil
 	}
 
-	metaNode = newMetaNode(nodeAddr, zoneName, c.Name)
+	metaNode = newMetaNode(nodeAddr, heartbeatPort, replicaPort, zoneName, c.Name)
 	metaNode.MpCntLimit = newLimitCounter(&c.cfg.MaxMpCntLimit, defaultMaxMpCntLimit)
 	zone, err := c.t.getZone(zoneName)
 	if err != nil {
