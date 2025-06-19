@@ -407,6 +407,9 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	m.config.volDeletionDentryThreshold = uint64(threshold)
 
 	enableDirectDeleteVol = cfg.GetBoolWithDefault(cfgEnableDirectDeleteVol, true)
+	if err = m.config.checkRaftPartitionCanUseDifferentPort(m, cfg.GetBoolWithDefault(cfgRaftPartitionCanUseDifferentPort, false)); err != nil {
+		return err
+	}
 
 	m.config.cfgDataMediaType = uint32(cfg.GetInt64(cfgLegacyDataMediaType))
 	if m.config.cfgDataMediaType != 0 && !proto.IsValidMediaType(m.config.cfgDataMediaType) {

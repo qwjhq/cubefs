@@ -84,6 +84,7 @@ func formatClusterView(cv *proto.ClusterView, cn *proto.ClusterNodeInfo, cp *pro
 	sb.WriteString(fmt.Sprintf("  DpBackupTimeout                  : %v\n", cv.DpBackupTimeout))
 	sb.WriteString(fmt.Sprintf("  ForbidWriteOpOfProtoVersion0     : %v\n", cv.ForbidWriteOpOfProtoVer0))
 	sb.WriteString(fmt.Sprintf("  LegacyDataMediaType              : %v\n", cv.LegacyDataMediaType))
+	sb.WriteString(fmt.Sprintf("  RaftPartitionCanUsingDifferentPortEnabled: %v\n", cv.RaftPartitionCanUsingDifferentPortEnabled))
 	return sb.String()
 }
 

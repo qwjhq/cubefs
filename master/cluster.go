@@ -894,7 +894,7 @@ func (c *Cluster) checkMetaNodeHeartbeat() {
 	c.metaNodes.Range(func(addr, metaNode interface{}) bool {
 		node := metaNode.(*MetaNode)
 		node.checkHeartbeat()
-		task := node.createHeartbeatTask(c.masterAddr(), c.fileStatsEnable, c.cfg.forbidWriteOpOfProtoVer0)
+		task := node.createHeartbeatTask(c.masterAddr(), c.fileStatsEnable, c.cfg.forbidWriteOpOfProtoVer0, c.RaftPartitionCanUsingDifferentPortEnabled())
 		hbReq := task.Request.(*proto.HeartBeatRequest)
 
 		c.volMutex.RLock()
@@ -1157,6 +1157,48 @@ func (c *Cluster) updateMetaNodeBaseInfo(nodeAddr string, id uint64) (err error)
 	return
 }
 
+// RaftPartitionCanUsingDifferentPortEnabled check whether raft partition can use different port or not
+func (c *Cluster) RaftPartitionCanUsingDifferentPortEnabled() bool {
+	if c.cfg.raftPartitionAlreadyUseDifferentPort.Load() {
+		// this cluster has already enabled this feature
+		return true
+	}
+
+	if !c.cfg.raftPartitionCanUseDifferentPort.Load() {
+		// user currently don't  enable this feature
+		return false
+	}
+
+	// user currently try to enable this feature
+	enabled := true
+	c.mnMutex.RLock()
+	c.metaNodes.Range(func(addr, node interface{}) bool {
+		metaNode := node.(*MetaNode)
+		if len(metaNode.HeartbeatPort) == 0 || len(metaNode.ReplicaPort) == 0 {
+			enabled = false
+			return false
+		}
+		return true
+	})
+	c.mnMutex.RUnlock()
+	// not check datanode HeartbeatPort ReplicaPort, only metanode use HeartbeatPort ReplicaPort
+
+	if enabled && !c.cfg.raftPartitionAlreadyUseDifferentPort.Load() {
+		// all data nodes and meta nodes are registered with HeartbeatPort and ReplicaPort
+		// this feature now is enabled, we update cluster cfg and store
+		c.cfg.raftPartitionAlreadyUseDifferentPort.Store(true)
+		if err := c.syncPutCluster(); err != nil {
+			log.LogErrorf("error syncPutCluster when set raftPartitionAlreadyUseDifferentPort to true, err:%v", err)
+			c.cfg.raftPartitionAlreadyUseDifferentPort.Store(false) // set back to false, let syncPutCluster try again in future
+			return false
+		}
+		log.LogInfof("all data nodes and meta nodes are registered with HeartbeatPort and ReplicaPort, " +
+			"raft partition use different port feature now is enabled")
+	}
+
+	return enabled
+}
+
 func (c *Cluster) addMetaNode(nodeAddr, heartbeatPort, replicaPort, zoneName string, nodesetId uint64) (id uint64, err error) {
 	c.mnMutex.Lock()
 	defer c.mnMutex.Unlock()
@@ -1168,13 +1210,17 @@ func (c *Cluster) addMetaNode(nodeAddr, heartbeatPort, replicaPort, zoneName str
 			return metaNode.ID, fmt.Errorf("addr already in nodeset [%v]", nodeAddr)
 		}
 
-		// compatible with old version in which raft heartbeat port and replica port did not persistAdd commentMore actions
-		metaNode.Lock()
-		defer metaNode.Unlock()
-		metaNode.HeartbeatPort = heartbeatPort
-		metaNode.ReplicaPort = replicaPort
-		if err = c.syncUpdateMetaNode(metaNode); err != nil {
-			return metaNode.ID, err
+		if len(heartbeatPort) > 0 && len(replicaPort) > 0 {
+			metaNode.Lock()
+			defer metaNode.Unlock()
+			if len(metaNode.HeartbeatPort) == 0 || len(metaNode.ReplicaPort) == 0 {
+				// compatible with old version in which raft heartbeat port and replica port did not persist
+				metaNode.HeartbeatPort = heartbeatPort
+				metaNode.ReplicaPort = replicaPort
+				if err = c.syncUpdateMetaNode(metaNode); err != nil {
+					return metaNode.ID, err
+				}
+			}
 		}
 
 		return metaNode.ID, nil

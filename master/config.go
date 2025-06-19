@@ -15,7 +15,10 @@
 package master
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/cubefs/cubefs/util/atomicutil"
+	"github.com/cubefs/cubefs/util/log"
 	syslog "log"
 	"strconv"
 	"strings"
@@ -58,7 +61,8 @@ const (
 
 	cfgHttpReversePoolSize = "httpReversePoolSize"
 
-	cfgLegacyDataMediaType = "legacyDataMediaType" // for hybrid cloud upgrade
+	cfgLegacyDataMediaType              = "legacyDataMediaType" // for hybrid cloud upgrade
+	cfgRaftPartitionCanUseDifferentPort = "raftPartitionCanUseDifferentPort"
 )
 
 // default value
@@ -168,6 +172,11 @@ type clusterConfig struct {
 	// PacketProtoVersion-0: before hybrid cloud version
 	// PacketProtoVersion-1: from hybrid cloud version
 	forbidWriteOpOfProtoVer0 bool
+
+	// whether data partition/meta partition can use different raft heartbeat port and replicate port.
+	// if so we can deploy multiple datanode/metanode on single machine
+	raftPartitionCanUseDifferentPort     atomicutil.Bool
+	raftPartitionAlreadyUseDifferentPort atomicutil.Bool
 }
 
 func newClusterConfig() (cfg *clusterConfig) {
@@ -228,5 +237,34 @@ func (cfg *clusterConfig) parsePeers(peerStr string) error {
 		syslog.Println(address)
 		AddrDatabase[id] = address
 	}
+	return nil
+}
+
+func (cfg *clusterConfig) checkRaftPartitionCanUseDifferentPort(m *Server, optVal bool) (err error) {
+	cfg.raftPartitionCanUseDifferentPort.Store(optVal)
+	clusterCfg, err := m.rocksDBStore.SeekForPrefix([]byte(clusterPrefix))
+	if err != nil {
+		err = fmt.Errorf("action[checkConfig] error when load cluster config form rocksdb,err:%v", err.Error())
+		return err
+	}
+	for _, c := range clusterCfg {
+		cv := &clusterValue{}
+		if err = json.Unmarshal(c, cv); err != nil {
+			log.LogErrorf("action[checkRaftPartitionCanUseDifferentPort], unmarshal err:%v", err.Error())
+			return err
+		}
+
+		if cv.Name != m.clusterName {
+			log.LogErrorf("action[checkRaftPartitionCanUseDifferentPort] loaded cluster value: %+v", cv)
+			continue
+		}
+
+		if cv.RaftPartitionAlreadyUseDifferentPort && !cfg.raftPartitionCanUseDifferentPort.Load() {
+			// raft partition has already use different port, but user want to disable this param again
+			return fmt.Errorf("raft partition has already use different port, can not try to disable this param again")
+		}
+		cfg.raftPartitionAlreadyUseDifferentPort.Store(cv.RaftPartitionAlreadyUseDifferentPort)
+	}
+
 	return nil
 }
