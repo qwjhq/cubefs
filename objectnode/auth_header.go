@@ -185,8 +185,9 @@ func (auth *HeaderAuth) SignatureMatch(secretKey string, wildcards Wildcards) bo
 		if auth.request.Header.Get(XAmzDecodedContentLength) != "" &&
 			auth.request.Header.Get(ContentEncoding) == streamingContentEncoding {
 			signature = auth.buildSignatureChunk(secretKey)
+			log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", auth.signature, secretKey, auth.buildSignatureV4(secretKey))
 		} else {
-			log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", signature, secretKey, auth.buildSignatureV4(secretKey))
+			log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", auth.signature, secretKey, auth.buildSignatureV4(secretKey))
 			signature = auth.buildSignatureV4(secretKey)
 		}
 		return auth.signature == signature
@@ -236,6 +237,6 @@ func (auth *HeaderAuth) buildSignatureChunk(secretKey string) string {
 	signature := calculateSignature(signingKey, auth.stringToSign)
 
 	auth.request.Body = NewSignChunkedReader(auth.request.Body, signingKey, scope, cred.Date, signature)
-
+	log.LogErrorf("validateAuthInfo buildSignatureChunk cred %v signingKey %v scope %v auth.stringToSign  %v  signature %v", cred, signingKey, scope, auth.stringToSign, signature)
 	return signature
 }
