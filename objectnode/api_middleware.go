@@ -170,6 +170,7 @@ func (o *ObjectNode) authMiddleware(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
+			log.LogErrorf("validateAuthInfo accessKey %v r.Header %v  r.Signature %v r.XAmzSignature %v r.method %v ", auth.Credential().AccessKey, r.Header.Get(Authorization), r.URL.Query().Get(Signature), r.URL.Query().Get(XAmzSignature), r.Method)
 			if err != nil {
 				log.LogErrorf("authMiddleware: parse auth fail: requestID(%v) err(%v)",
 					GetRequestID(r), err)
