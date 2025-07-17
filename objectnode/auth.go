@@ -220,6 +220,8 @@ func (o *ObjectNode) validateAuthInfo(r *http.Request, auth Auther) (err error) 
 			GetRequestID(r), time.Now().UTC().Format(ISO8601Format), cred.Date, cred.Expires)
 		return ExpiredToken
 	}
+
+	log.LogErrorf("validateAuthInfo sk %v o.wildcards %v ak %v uid %v", sk, o.wildcards, ak, uid)
 	if !auth.SignatureMatch(sk, o.wildcards) {
 		log.LogErrorf("validateAuthInfo: signature not match: requestID(%v) AccessKeyId(%v)\nstringToSign=(\n%v\n)\ncanonialRequest=(\n%v\n)",
 			GetRequestID(r), reqAK, auth.StringToSign(), auth.CanonicalRequest())

@@ -15,6 +15,7 @@
 package objectnode
 
 import (
+	"github.com/cubefs/cubefs/util/log"
 	"net/http"
 	"strings"
 	"time"
@@ -185,6 +186,7 @@ func (auth *HeaderAuth) SignatureMatch(secretKey string, wildcards Wildcards) bo
 			auth.request.Header.Get(ContentEncoding) == streamingContentEncoding {
 			signature = auth.buildSignatureChunk(secretKey)
 		} else {
+			log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", signature, secretKey, auth.buildSignatureV4(secretKey))
 			signature = auth.buildSignatureV4(secretKey)
 		}
 		return auth.signature == signature

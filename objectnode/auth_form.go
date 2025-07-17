@@ -15,6 +15,7 @@
 package objectnode
 
 import (
+	"github.com/cubefs/cubefs/util/log"
 	"net/http"
 	"strings"
 	"time"
@@ -183,6 +184,7 @@ func (auth *FormAuth) SignatureMatch(secretKey string, wildcards Wildcards) bool
 	case signatureV4:
 		cred := auth.credential
 		signingKey := buildSigningKey(auth.version, secretKey, cred.Date, cred.Region, cred.Service, cred.Request)
+		log.LogErrorf("validateAuthInfo auth.version %v secretKey %v cred.Date %v cred.Region %v cred.Service %v cred.Request %v signingKey %v auth.signature %v signature %v", auth.version, secretKey, cred.Date, cred.Region, cred.Service, cred.Request, signingKey, auth.signature, calculateSignature(signingKey, auth.stringToSign))
 		return auth.signature == calculateSignature(signingKey, auth.stringToSign)
 	default:
 		return false

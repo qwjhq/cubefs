@@ -15,6 +15,7 @@
 package objectnode
 
 import (
+	"github.com/cubefs/cubefs/util/log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -189,6 +190,7 @@ func (auth *QueryAuth) SignatureMatch(secretKey string, wildcards Wildcards) boo
 	case signatureV2:
 		return auth.signature == auth.buildSignatureV2(secretKey, wildcards)
 	case signatureV4:
+		log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", auth.signature, secretKey, auth.buildSignatureV4(secretKey))
 		return auth.signature == auth.buildSignatureV4(secretKey)
 	default:
 		return false
