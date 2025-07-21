@@ -182,14 +182,14 @@ func (auth *HeaderAuth) SignatureMatch(secretKey string, wildcards Wildcards) bo
 		return auth.signature == auth.buildSignatureV2(secretKey, wildcards)
 	case signatureV4:
 		var signature string
-		if auth.request.Header.Get(XAmzDecodedContentLength) != "" &&
-			auth.request.Header.Get(ContentEncoding) == streamingContentEncoding {
-			signature = auth.buildSignatureChunk(secretKey)
-			log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", auth.signature, secretKey, auth.buildSignatureV4(secretKey))
-		} else {
-			log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", auth.signature, secretKey, auth.buildSignatureV4(secretKey))
-			signature = auth.buildSignatureV4(secretKey)
-		}
+		//if auth.request.Header.Get(XAmzDecodedContentLength) != "" &&
+		//	auth.request.Header.Get(ContentEncoding) == streamingContentEncoding {
+		//	signature = auth.buildSignatureChunk(secretKey)
+		//	log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", auth.signature, secretKey, auth.buildSignatureV4(secretKey))
+		//} else {
+		log.LogErrorf("validateAuthInfo signature %v secretKey %v auth %v ", auth.signature, secretKey, auth.buildSignatureV4(secretKey))
+		signature = auth.buildSignatureV4(secretKey)
+		//}
 		return auth.signature == signature
 	default:
 		return false
