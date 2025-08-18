@@ -319,6 +319,7 @@ func (rs *RaftServer) TryToLeader(id uint64) (future *Future) {
 
 func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
 	var updated bool
+	var oldLeader uint64
 	rs.mu.RLock()
 	raft, ok := rs.rafts[id]
 	if raft.prevSoftSt.term != raft.raftFsm.term {
@@ -329,6 +330,7 @@ func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
 	if raft.raftFsm.leader != nodeID {
 		updated = true
 		raft.stopSnapping()
+		oldLeader = raft.raftFsm.leader - 1
 	}
 
 	raft.config.NodeID = nodeID
@@ -342,7 +344,7 @@ func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
 	}
 	raft.tryToLeader(future)
 	if updated {
-		raft.raftFsm.replicas[nodeID-1].resetState(replicaStateReplicate)
+		raft.raftFsm.replicas[oldLeader].resetState(replicaStateReplicate)
 		atomic.StorePointer(&raft.curSoftSt, unsafe.Pointer(&softState{leader: raft.raftFsm.leader, term: raft.raftFsm.term}))
 	}
 	return
