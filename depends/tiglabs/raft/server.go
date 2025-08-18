@@ -17,7 +17,9 @@ package raft
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/cubefs/cubefs/depends/tiglabs/raft/logger"
 	"github.com/cubefs/cubefs/depends/tiglabs/raft/proto"
@@ -316,13 +318,16 @@ func (rs *RaftServer) TryToLeader(id uint64) (future *Future) {
 }
 
 func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
+	var updated bool
 	rs.mu.RLock()
 	raft, ok := rs.rafts[id]
 	if raft.prevSoftSt.term != raft.raftFsm.term {
+		updated = true
 		raft.resetTick()
 	}
 
 	if raft.raftFsm.leader != nodeID {
+		updated = true
 		raft.stopSnapping()
 	}
 
@@ -336,6 +341,9 @@ func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
 		return
 	}
 	raft.tryToLeader(future)
+	if updated {
+		atomic.StorePointer(&raft.curSoftSt, unsafe.Pointer(&softState{leader: raft.raftFsm.leader, term: raft.raftFsm.term}))
+	}
 	return
 }
 
