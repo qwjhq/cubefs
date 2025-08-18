@@ -68,7 +68,7 @@ type Partition interface {
 
 	// Truncate raft log
 	Truncate(index uint64)
-	TryToLeader(nodeID uint64) error
+	TryToLeader(raftID, nodeID uint64) error
 	IsOfflinePeer() bool
 
 	// CloseAndBackup closes the partition and backup the wal.
@@ -102,9 +102,15 @@ func (p *partition) Stop() (err error) {
 	return
 }
 
-func (p *partition) TryToLeader(nodeID uint64) (err error) {
-	future := p.raft.TryToLeader(nodeID)
-	_, err = future.Response()
+func (p *partition) TryToLeader(raftID, nodeID uint64) (err error) {
+	if nodeID == 0 {
+		future := p.raft.TryToLeader(raftID)
+		_, err = future.Response()
+	} else {
+		future := p.raft.ChangeMasterLeader(raftID, nodeID)
+		_, err = future.Response()
+	}
+
 	return
 }
 

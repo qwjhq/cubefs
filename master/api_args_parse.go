@@ -703,6 +703,13 @@ func parseRequestToSetVolCapacity(r *http.Request) (name, authKey string, capaci
 	return
 }
 
+func parseRequestNodeID(r *http.Request) (nodeID uint64, err error) {
+	if nodeID, err = extractUint64(r, idKey); err != nil {
+		return
+	}
+	return
+}
+
 type qosArgs struct {
 	qosEnable     bool
 	diskQosEnable bool

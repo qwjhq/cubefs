@@ -1430,7 +1430,7 @@ func (mp *metaPartition) IsExsitPeer(peer proto.Peer) bool {
 }
 
 func (mp *metaPartition) TryToLeader(groupID uint64) error {
-	return mp.raftPartition.TryToLeader(groupID)
+	return mp.raftPartition.TryToLeader(groupID, 0)
 }
 
 // ResponseLoadMetaPartition loads the snapshot signature. TODO remove? no usage?

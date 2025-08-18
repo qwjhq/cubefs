@@ -6176,19 +6176,39 @@ func (m *Server) listVols(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Server) changeMasterLeader(w http.ResponseWriter, r *http.Request) {
-	var err error
+	var (
+		err    error
+		nodeID uint64
+	)
 	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminChangeMasterLeader))
 	defer func() {
 		doStatAndMetric(proto.AdminChangeMasterLeader, metric, err, nil)
 		AuditLog(r, proto.AdminChangeMasterLeader, "", err)
 	}()
 
-	if err = m.cluster.tryToChangeLeaderByHost(); err != nil {
+	nodeID, err = parseRequestNodeID(r)
+	if err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if m.cluster.checkChangeLeader(nodeID) {
+		sendOkReply(w, r, newSuccessHTTPReply(" node is leader yet!"))
+		return
+	}
+
+	if err = m.cluster.tryToChangeLeaderByHost(nodeID); err != nil {
 		log.LogErrorf("changeMasterLeader.err %v", err)
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
-	rstMsg := " changeMasterLeader. command success send to dest host but need check. "
+
+	var rstMsg string
+	if m.cluster.checkChangeLeader(nodeID) {
+		rstMsg = " changeMasterLeader success!"
+	} else {
+		rstMsg = " changeMasterLeader failed please retry!"
+	}
 	_ = sendOkReply(w, r, newSuccessHTTPReply(rstMsg))
 }
 

@@ -315,6 +315,30 @@ func (rs *RaftServer) TryToLeader(id uint64) (future *Future) {
 	return
 }
 
+func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
+	rs.mu.RLock()
+	raft, ok := rs.rafts[id]
+	if raft.prevSoftSt.term != raft.raftFsm.term {
+		raft.resetTick()
+	}
+
+	if raft.raftFsm.leader != nodeID {
+		raft.stopSnapping()
+	}
+
+	raft.config.NodeID = nodeID
+	raft.raftFsm.leader = nodeID
+	rs.mu.RUnlock()
+
+	future = newFuture()
+	if !ok {
+		future.respond(nil, ErrRaftNotExists)
+		return
+	}
+	raft.tryToLeader(future)
+	return
+}
+
 func (rs *RaftServer) Truncate(id uint64, index uint64) {
 	rs.mu.RLock()
 	raft, ok := rs.rafts[id]

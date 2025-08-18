@@ -1721,7 +1721,7 @@ func (s *DataNode) handlePacketToDataPartitionTryToLeader(p *repl.Packet) {
 		log.LogWarnf("handlePacketToDataPartitionTryToLeader: %v is already leader", p.PartitionID)
 		return
 	}
-	err = dp.raftPartition.TryToLeader(dp.partitionID)
+	err = dp.raftPartition.TryToLeader(dp.partitionID, 0)
 	leaderID, _ := dp.raftPartition.LeaderTerm()
 	log.LogWarnf("handlePacketToDataPartitionTryToLeader: %v change leader to %v", p.PartitionID, leaderID)
 }

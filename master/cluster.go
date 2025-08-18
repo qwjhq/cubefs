@@ -521,8 +521,13 @@ func (c *Cluster) masterAddr() (addr string) {
 	return c.leaderInfo.addr
 }
 
-func (c *Cluster) tryToChangeLeaderByHost() error {
-	return c.partition.TryToLeader(1)
+func (c *Cluster) tryToChangeLeaderByHost(nodeID uint64) error {
+	return c.partition.TryToLeader(1, nodeID)
+}
+
+func (c *Cluster) checkChangeLeader(nodeID uint64) bool {
+	leaderID, _ := c.partition.LeaderTerm()
+	return nodeID == leaderID
 }
 
 func (c *Cluster) scheduleToUpdateStatInfo() {

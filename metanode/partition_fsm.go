@@ -951,7 +951,7 @@ func (mp *metaPartition) HandleLeaderChange(leader uint64) {
 		if err != nil {
 			log.LogErrorf(fmt.Sprintf("HandleLeaderChange serverPort not exsit ,error %v", err))
 			exporter.Warning(fmt.Sprintf("mp[%v] HandleLeaderChange serverPort not exsit ,error %v", mp.config.PartitionId, err))
-			go mp.raftPartition.TryToLeader(mp.config.PartitionId)
+			go mp.raftPartition.TryToLeader(mp.config.PartitionId, 0)
 			return
 		}
 		log.LogDebugf("[metaPartition] pid: %v HandleLeaderChange close conn %v, nodeId: %v, leader: %v",
