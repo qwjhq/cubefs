@@ -342,6 +342,7 @@ func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
 	}
 	raft.tryToLeader(future)
 	if updated {
+		raft.raftFsm.replicas[nodeID-1].resetState(replicaStateReplicate)
 		atomic.StorePointer(&raft.curSoftSt, unsafe.Pointer(&softState{leader: raft.raftFsm.leader, term: raft.raftFsm.term}))
 	}
 	return
