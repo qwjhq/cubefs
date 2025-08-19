@@ -16,11 +16,14 @@ package raft
 
 import (
 	"errors"
+	"sync"
+	"sync/atomic"
+	"time"
+	"unsafe"
+
 	"github.com/cubefs/cubefs/depends/tiglabs/raft/logger"
 	"github.com/cubefs/cubefs/depends/tiglabs/raft/proto"
 	"github.com/cubefs/cubefs/depends/tiglabs/raft/util"
-	"sync"
-	"time"
 )
 
 var (
@@ -340,21 +343,62 @@ func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
 		return
 	}
 
+	// 保存当前状态用于后续操作
+	var updated bool
+	oldLeader := raft.raftFsm.leader
+	oldTerm := raft.raftFsm.term
+	prevTerm := raft.prevSoftSt.term
+
 	rs.mu.RUnlock()
 
 	// 重新获取写锁进行状态更新
 	rs.mu.Lock()
-	defer rs.mu.Unlock()
 	raft, ok = rs.rafts[id]
 	if !ok {
+		rs.mu.Unlock()
 		future.respond(nil, ErrRaftNotExists)
 		return
 	}
 
 	raft.raftFsm.leader = nodeID
 	raft.raftFsm.config.NodeID = nodeID
-	raft.raftFsm.becomeLeader()
+	raft.config.NodeID = nodeID
+	// 检查状态是否发生变化
+	if raft.prevSoftSt.term != prevTerm || raft.raftFsm.term != oldTerm {
+		updated = true
+		raft.resetTick()
+	}
 
+	if raft.raftFsm.leader != oldTerm {
+		updated = true
+		raft.stopSnapping()
+	}
+
+	// 更新replica状态
+	if oldLeader != nodeID {
+		for id, _ := range raft.raftFsm.replicas {
+			if id != nodeID-1 {
+				if replica, exists := raft.raftFsm.replicas[id]; exists {
+					replica.active = false
+				}
+			}
+		}
+	}
+
+	// 激活新leader节点
+	if replica, exists := raft.raftFsm.replicas[nodeID-1]; exists {
+		replica.active = true
+		replica.lastActive = time.Now()
+	}
+
+	rs.mu.Unlock()
+
+	// 尝试成为leader
+	raft.tryToLeader(future)
+
+	if updated {
+		atomic.StorePointer(&raft.curSoftSt, unsafe.Pointer(&softState{leader: raft.raftFsm.leader, term: raft.raftFsm.term}))
+	}
 	return
 }
 
