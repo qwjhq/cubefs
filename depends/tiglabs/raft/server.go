@@ -361,6 +361,7 @@ func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
 	}
 
 	raft.raftFsm.leader = nodeID
+	raft.config.NodeID = nodeID
 	// 检查状态是否发生变化
 	if raft.prevSoftSt.term != prevTerm || raft.raftFsm.term != oldTerm {
 		updated = true
