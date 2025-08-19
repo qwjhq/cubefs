@@ -318,35 +318,83 @@ func (rs *RaftServer) TryToLeader(id uint64) (future *Future) {
 }
 
 func (rs *RaftServer) ChangeMasterLeader(id, nodeID uint64) (future *Future) {
-	var updated bool
+	future = newFuture()
+
 	rs.mu.RLock()
 	raft, ok := rs.rafts[id]
-	if raft.prevSoftSt.term != raft.raftFsm.term {
+	if !ok {
+		rs.mu.RUnlock()
+		future.respond(nil, ErrRaftNotExists)
+		return
+	}
+
+	// 验证目标节点是否存在于集群中
+	_, nodeExists := raft.raftFsm.replicas[nodeID]
+	if !nodeExists {
+		rs.mu.RUnlock()
+		future.respond(nil, ErrRaftNotExists)
+		return
+	}
+
+	// 如果目标节点已经是leader，直接返回成功
+	if raft.raftFsm.leader == nodeID {
+		rs.mu.RUnlock()
+		future.respond(nil, nil)
+		return
+	}
+
+	// 保存当前状态用于后续操作
+	var updated bool
+	oldLeader := raft.raftFsm.leader
+	oldTerm := raft.raftFsm.term
+	prevTerm := raft.prevSoftSt.term
+
+	rs.mu.RUnlock()
+
+	// 重新获取写锁进行状态更新
+	rs.mu.Lock()
+	raft, ok = rs.rafts[id]
+	if !ok {
+		rs.mu.Unlock()
+		future.respond(nil, ErrRaftNotExists)
+		return
+	}
+
+	raft.raftFsm.leader = nodeID
+	// 检查状态是否发生变化
+	if raft.prevSoftSt.term != prevTerm || raft.raftFsm.term != oldTerm {
 		updated = true
 		raft.resetTick()
 	}
 
-	if raft.raftFsm.leader != nodeID {
+	if raft.raftFsm.leader != oldTerm {
 		updated = true
 		raft.stopSnapping()
 	}
 
-	raft.config.NodeID = nodeID
-	raft.raftFsm.leader = nodeID
-	rs.mu.RUnlock()
-
-	future = newFuture()
-	if !ok {
-		future.respond(nil, ErrRaftNotExists)
-		return
-	}
-	raft.tryToLeader(future)
-	if updated {
-		for k, _ := range raft.raftFsm.replicas {
-			if k != nodeID-1 {
-				raft.raftFsm.replicas[k].resetState(replicaStateReplicate)
+	// 更新replica状态
+	if oldLeader != nodeID {
+		for id, _ := range raft.raftFsm.replicas {
+			if id != nodeID-1 {
+				if replica, exists := raft.raftFsm.replicas[id]; exists {
+					replica.active = false
+				}
 			}
 		}
+	}
+
+	// 激活新leader节点
+	if replica, exists := raft.raftFsm.replicas[nodeID-1]; exists {
+		replica.active = true
+		replica.lastActive = time.Now()
+	}
+
+	rs.mu.Unlock()
+
+	// 尝试成为leader
+	raft.tryToLeader(future)
+
+	if updated {
 		atomic.StorePointer(&raft.curSoftSt, unsafe.Pointer(&softState{leader: raft.raftFsm.leader, term: raft.raftFsm.term}))
 	}
 	return
